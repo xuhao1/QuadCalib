@@ -30,12 +30,19 @@ with this program; if not, see <https://www.gnu.org/licenses/lgpl-2.1.html>.
 """
 
 from AprilDetection.detection import Detector
+import cv2 as cv
+import numpy as np
 
+def concate_quad_images(imgs):
+    img = np.concatenate((np.concatenate((imgs[0], imgs[1]), axis=1),
+                                    np.concatenate((imgs[2], imgs[3]), axis=1)), axis=0)
+    cv.line(img, (0, img.shape[0]//2), (img.shape[1], img.shape[0]//2), (255, 255, 0), 2)
+    cv.line(img, (img.shape[1]//2, 0), (img.shape[1]//2, img.shape[0]), (255, 255, 0), 2)
+    return img
+    
 def parse_bag_and_calibrate_quad_in_single_thread(rosbag_path, show=False):
     import rosbag
-    import cv2 as cv
     from Utils import splitImage
-    import numpy as np
     
     detectors = [Detector(camera_id=i) for i in range(4)]
     
@@ -57,20 +64,10 @@ def parse_bag_and_calibrate_quad_in_single_thread(rosbag_path, show=False):
             for i in range(4):
                 imgs[i], cul_img[i] = detectors[i].detect(imgs[i], t, frame_id, show=show)
             # Concatenate the images to 2x2
-            img = np.concatenate((np.concatenate((imgs[0], imgs[1]), axis=1),
-                                    np.concatenate((imgs[2], imgs[3]), axis=1)), axis=0)
-            cul_img = np.concatenate((np.concatenate((cul_img[0], cul_img[1]), axis=1),
-                                    np.concatenate((cul_img[2], cul_img[3]), axis=1)), axis=0)
-            # Draw border lines of concatenated image
-            cv.line(img, (0, img.shape[0]//2), (img.shape[1], img.shape[0]//2), (0, 255, 0), 2)
-            cv.line(img, (img.shape[1]//2, 0), (img.shape[1]//2, img.shape[0]), (0, 255, 0), 2)
-            cv.line(cul_img, (0, cul_img.shape[0]//2), (cul_img.shape[1], cul_img.shape[0]//2), (0, 255, 0), 2)
-            cv.line(cul_img, (cul_img.shape[1]//2, 0), (cul_img.shape[1]//2, cul_img.shape[0]), (0, 255, 0), 2)
-            
             frame_id += 1
             if show:
-                cv.imshow("Image", img)
-                cv.imshow("CulImage", cul_img)
+                cv.imshow("Image", concate_quad_images(imgs))
+                cv.imshow("CulImage", concate_quad_images(cul_img))
                 cv.waitKey(1)
                 
     
