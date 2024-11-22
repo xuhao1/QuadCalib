@@ -30,6 +30,7 @@ with this program; if not, see <https://www.gnu.org/licenses/lgpl-2.1.html>.
 """
 
 import cv2
+import numpy as np
 
 class Detector:               
     def __init__(self, camera_id = 0, tag_config="tag36h11", calibration_method="OPENCV", minimum_tag_num=4):
@@ -44,6 +45,7 @@ class Detector:
         arucoParams.adaptiveThreshWinSizeMin = 3
         self.arucoParams = arucoParams
         self.minimum_tag_num = minimum_tag_num
+        self.image_accumulate_corners = None    
     
     def detect(self, image, image_t, image_idx, show=False):
         # Defaultly detect use apriltag
@@ -55,13 +57,36 @@ class Detector:
         if len(corners) >= self.minimum_tag_num:
             print(f"Detect {len(corners)} on camera {self.camera_id} at I{image_idx}")
             self.results[image_idx] = (image_t, corners, ids)
-
         if show:
             # Draw corners and ids on the image
             image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+            if self.image_accumulate_corners is None:
+                self.image_accumulate_corners = np.zeros(image.shape)
+            
             cv2.aruco.drawDetectedMarkers(image, corners, ids, (0, 255, 0))
+            
+            # Draw corners in image_accumulate_corners
+            if len(corners) >= self.minimum_tag_num:
+                # Draw the corners:
+                # (array([[[455., 524.],
+                    # [434., 524.],
+                    # [432., 504.],
+                    # [454., 504.]]], dtype=float32), array([[[455., 463.],
+                    # [433., 460.],
+                    # [435., 437.],
+                    # [458., 441.]]], dtype=float32), array([[[423., 460.],
+                    # [400., 456.],
+                    # [402., 431.],
+                    # [425., 435.]]], dtype=float32), array([[[390., 454.],
+                    # [369., 449.],
+                    # [371., 425.],
+                    # [392., 430.]]], dtype=float32))
+                for corner in corners:
+                    for c in corner[0]:
+                        cv2.circle(self.image_accumulate_corners, (int(c[0]), int(c[1])), 3, (0, 255, 0), -1)
+            
             # cv2.imshow(f"Image {self.camera_id}", image)
-        return image
+        return image, self.image_accumulate_corners
     
     def calibrate_mono(self, image_size, initial_K=None, initial_D=None):
         pts_3d, pts_2d = self.gather_information()
