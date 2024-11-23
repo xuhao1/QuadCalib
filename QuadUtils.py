@@ -3,7 +3,7 @@ import rosbag
 import os
 import yaml
 
-def splitImage(img, num_subimages = 4):
+def split_quad_image(img, num_subimages = 4):
     #Split image vertically
     h, w = img.shape[:2]
     sub_w = w // num_subimages

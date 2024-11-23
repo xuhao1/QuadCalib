@@ -33,8 +33,8 @@ import argparse
 import os
 import sys
 from calibrate_single_thread import parse_bag_and_calibrate_quad_in_single_thread
+import cv2
 
-    
 if __name__ == "__main__":
     # Create the parser for argparse. User should input the file path of bag
     # file and the output directory.
@@ -45,10 +45,14 @@ if __name__ == "__main__":
                         help="The file path of the rosbag file.")
     parser.add_argument("-o", "--output", required=True, type=str,
                         help="The output directory.")
+    parser.add_argument("-s", "--step", type=int, default=3, help="The step to "
+                        "extract the image data. Default is 3.")
     # If --show is set, the image will be shown.
     parser.add_argument("--show", action="store_true",
                         help="Show the image.")
     # Parse the arguments
     args = parser.parse_args()
-    parse_bag_and_calibrate_quad_in_single_thread(args.input, show=args.show)
     
+    cv2.setNumThreads(10)
+    
+    parse_bag_and_calibrate_quad_in_single_thread(args.input, show=args.show, step=args.step)

@@ -32,21 +32,29 @@ with this program; if not, see <https://www.gnu.org/licenses/lgpl-2.1.html>.
 import cv2
 import numpy as np
 
+import yaml
+import numpy as np
+from AprilDetection.aprilgrid import generate_aprilgrid_3d_points, load_aprilgrid_config
+
 class Detector:               
-    def __init__(self, camera_id = 0, tag_config="tag36h11", calibration_method="OPENCV", minimum_tag_num=4):
+    def __init__(self, camera_id = 0, tag_config="tag36h11", minimum_tag_num=4, yaml_file=None) -> None:
         self.camera_id = camera_id
         self.tag_config = tag_config
         self.detector_opencv = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_APRILTAG_36h11)
         self.results = {}
-        self.calibration_method = calibration_method
         arucoParams = cv2.aruco.DetectorParameters()
         arucoParams.markerBorderBits = 2
         arucoParams.adaptiveThreshWinSizeStep = 1
         arucoParams.adaptiveThreshWinSizeMin = 3
         self.arucoParams = arucoParams
         self.minimum_tag_num = minimum_tag_num
-        self.image_accumulate_corners = None    
-    
+        self.image_accumulate_corners = None
+        aprilgrid_config = load_aprilgrid_config(yaml_file)  
+        self.aprilgrid_3d_points = generate_aprilgrid_3d_points(aprilgrid_config['tagCols'],
+                                                                aprilgrid_config['tagRows'],
+                                                                aprilgrid_config['tagSize'],
+                                                                aprilgrid_config['tagSpacing'])
+        
     def detect(self, image, image_t, image_idx, show=False):
         # Defaultly detect use apriltag
         if len(image.shape) == 3:
@@ -54,8 +62,8 @@ class Detector:
         #And then use opencv
         corners, ids, rejectedImgPoints = cv2.aruco.detectMarkers(image, self.detector_opencv,
                                                                 parameters=self.arucoParams)
+        # corners2 = cv.cornerSubPix(gray,corners, (11,11), (-1,-1), criteria)
         if len(corners) >= self.minimum_tag_num:
-            print(f"Detect {len(corners)} on camera {self.camera_id} at I{image_idx}")
             self.results[image_idx] = (image_t, corners, ids)
         if show:
             # Draw corners and ids on the image
@@ -67,38 +75,31 @@ class Detector:
             
             # Draw corners in image_accumulate_corners
             if len(corners) >= self.minimum_tag_num:
-                # Draw the corners:
-                # (array([[[455., 524.],
-                    # [434., 524.],
-                    # [432., 504.],
-                    # [454., 504.]]], dtype=float32), array([[[455., 463.],
-                    # [433., 460.],
-                    # [435., 437.],
-                    # [458., 441.]]], dtype=float32), array([[[423., 460.],
-                    # [400., 456.],
-                    # [402., 431.],
-                    # [425., 435.]]], dtype=float32), array([[[390., 454.],
-                    # [369., 449.],
-                    # [371., 425.],
-                    # [392., 430.]]], dtype=float32))
                 for corner in corners:
                     for c in corner[0]:
                         cv2.circle(self.image_accumulate_corners, (int(c[0]), int(c[1])), 3, (0, 255, 0), -1)
             
-            # cv2.imshow(f"Image {self.camera_id}", image)
         return image, self.image_accumulate_corners
-    
-    def calibrate_mono(self, image_size, initial_K=None, initial_D=None):
-        pts_3d, pts_2d = self.gather_information()
-        if self.calibration_method == "OPENCV":
-            flags = 0
-            if initial_K is not None:
-                flags |= cv2.fisheye.CALIB_FIX_INTRINSIC
-            retval, K, D, rvecs, tvecs = cv2.fisheye.calibrate(pts_3d, pts_2d, image_size=image_size, K=initial_K, D=initial_D, flags=flags)
-        elif self.calibration_method == "GTSAM":
-            pass
-        else:
-            raise ValueError("The calibration method is not supported.")
-    
+
     def gather_information(self):
-        pass
+        # Output 3D points and 2D points
+        # objectPoints	vector of vectors of calibration pattern points in the calibration pattern coordinate space.
+        # imagePoints	vector of vectors of the projections of calibration pattern points. imagePoints.size() and objectPoints.size() and imagePoints[i].size() must be equal to objectPoints[i].size() for each i.
+        objectPoints = []
+        imagePoints = []
+        for image_idx, (image_t, corners, ids) in self.results.items():
+            objectPointsInFrame = []
+            imagePointsInFrame = []
+            if len(corners) < self.minimum_tag_num:
+                continue
+            # Get the 3D points of the tags
+            for corner, id in zip(corners, ids):
+                apriltag_pts = self.aprilgrid_3d_points[id[0]].reshape(1, -1, 3)
+                corners = corner.reshape(1, -1, 2)
+                objectPointsInFrame.extend(apriltag_pts)
+                imagePointsInFrame.extend(corners)
+            objectPointsInFrame = np.array(objectPointsInFrame, dtype=np.float32).reshape(-1, 1, 3)
+            imagePointsInFrame = np.array(imagePointsInFrame, dtype=np.float32).reshape(-1, 1, 2)
+            objectPoints.append(objectPointsInFrame)
+            imagePoints.append(imagePointsInFrame)
+        return objectPoints, imagePoints
