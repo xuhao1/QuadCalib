@@ -27,19 +27,22 @@ def generate_aprilgrid_3d_points(tagCols, tagRows, tagSize, tagSpacing):
     grid_points = {}
     tag_stride = tagSize * (1 + tagSpacing)  # 标签中心之间的间距
     tag_id = 0  # 初始标签 ID
-
     for row in range(tagRows):
         for col in range(tagCols):
-            # 计算当前标签的起始坐标（左上角）
+            # 计算当前标签的 4 个角点坐标
+            # convert corners to cv::Mat (4 consecutive corners form one tag)
+            # point ordering here in OpenCV
+            #           2-------3
+            #     y     | TAG 0 |
+            #    ^      1-------0
+            #    |-->x
             tag_origin_x = col * tag_stride
             tag_origin_y = row * tag_stride
-            
-            # 计算当前标签的 4 个角点坐标
             tag_corners = [
-                [tag_origin_x, tag_origin_y, 0],                          # 左上角
-                [tag_origin_x + tagSize, tag_origin_y, 0],               # 右上角
-                [tag_origin_x + tagSize, tag_origin_y + tagSize, 0],     # 右下角
-                [tag_origin_x, tag_origin_y + tagSize, 0]                # 左下角
+                [tag_origin_x + tagSize, tag_origin_y, 0],  # 0
+                [tag_origin_x, tag_origin_y, 0],  # 1
+                [tag_origin_x, tag_origin_y + tagSize, 0],  # 2
+                [tag_origin_x + tagSize, tag_origin_y + tagSize, 0],  # 3
             ]
             grid_points[tag_id] = np.array(tag_corners, dtype=np.float32)
             tag_id += 1  # 更新标签 ID

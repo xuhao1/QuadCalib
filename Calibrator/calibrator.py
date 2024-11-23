@@ -36,21 +36,28 @@ class IntrinsicCalibrator:
     def __init__(self, calibration_method="OPENCV") -> None:
         self.calibration_method = calibration_method
 
-    def calibrate_mono(self, detector, image_size, K_init = np.array([2., 1117., 1117., 651., 384.]),
-                                                    D_init = np.array([-0.2, 0.4, 0., 0.])):
+    def calibrate_mono(self, detector, image_size, intrinsic_init = np.array([1.24, 813, 812, 640, 360], dtype=np.float64),
+                                                    D_init = np.array([-0.2, 0.4, 0., 0.], dtype=np.float64)):
         pts_3d, pts_2d = detector.gather_information()
         if pts_3d is None or pts_2d is None or len(pts_3d) == 0 or len(pts_2d) == 0:
             print("No enough information for calibration.")
             return None, None, None, None, None
         if self.calibration_method == "OPENCV":
-            flags = 0
-            if K_init is not None:
-                flags |= cv2.fisheye.CALIB_USE_INTRINSIC_GUESS
-            K = np.array([[K_init[1], 0, K_init[3]], [0, K_init[2], K_init[4]], [0, 0, 1]])
-            retval, K, D, rvecs, tvecs = cv2.fisheye.calibrate(pts_3d, pts_2d, image_size=image_size, K=K, D=D_init, flags=flags)
-            print("Intrinsic calibration done: ", retval)
-            print("K: ", K)
-            print("D: ", D)
+            flags = cv2.omnidir.CALIB_FIX_SKEW
+            if intrinsic_init is not None:
+                flags |= cv2.omnidir.CALIB_USE_GUESS
+            D_init = D_init.reshape((1, 4))
+            K = np.array([[intrinsic_init[1], 0, intrinsic_init[3]], [0, intrinsic_init[2], intrinsic_init[4]], [0, 0, 1]], dtype=np.float64)
+            xi = np.array([intrinsic_init[0]], dtype=np.float64)
+            rvecs = None
+            tvecs = None
+            retval, K, xi, D, rvecs, tvecs, idx = cv2.omnidir.calibrate(pts_3d, pts_2d, size=image_size, K=K,
+                                                            xi=xi, D=D_init, flags=flags,
+                                                            criteria=(cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 1e-6))
+            print("Intrinsic calibration done: RMSE:", retval)
+            print(f"Intrinsic: [{xi[0]}, {K[0, 0]}, {K[1, 1]}, {K[0, 2]}, {K[1, 2]}]")
+            print("K:\n", K)
+            print("D: ", D[0])
         elif self.calibration_method == "GTSAM":
             pass
         else:

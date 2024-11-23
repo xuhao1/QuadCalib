@@ -87,7 +87,9 @@ def parse_bag_and_calibrate_quad_in_single_thread(rosbag_path, show=False, step=
             cv.imshow("Image", show_image)
             cv.imshow("CulImage", concate_quad_images(cul_img))
             # Draw the frame_id
-            cv.waitKey(1)
+            key = cv.waitKey(1)
+            if key == ord('q') or key == 27:
+                break
         frame_id += 1
     pbar.close()
     for i in range(4):

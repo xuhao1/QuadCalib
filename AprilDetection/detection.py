@@ -94,8 +94,8 @@ class Detector:
                 continue
             # Get the 3D points of the tags
             for corner, id in zip(corners, ids):
-                apriltag_pts = self.aprilgrid_3d_points[id[0]].reshape(1, -1, 3)
-                corners = corner.reshape(1, -1, 2)
+                apriltag_pts = self.aprilgrid_3d_points[id[0]].reshape(-1, 3)
+                corners = corner.reshape(-1, 2)
                 objectPointsInFrame.extend(apriltag_pts)
                 imagePointsInFrame.extend(corners)
             objectPointsInFrame = np.array(objectPointsInFrame, dtype=np.float32).reshape(-1, 1, 3)
