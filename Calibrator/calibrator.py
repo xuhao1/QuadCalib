@@ -36,8 +36,8 @@ class IntrinsicCalibrator:
     def __init__(self, calibration_method="OPENCV") -> None:
         self.calibration_method = calibration_method
 
-    def calibrate_mono(self, detector, image_size, intrinsic_init = np.array([1.24, 813, 812, 640, 360], dtype=np.float64),
-                                                    D_init = np.array([-0.2, 0.4, 0., 0.], dtype=np.float64)):
+    def calibrate_mono(self, detector, image_size, intrinsic_init = np.array([1.24, 813, 812, 640, 360]),
+                                                    D_init = np.array([-0.2, 0.4, 0., 0.])):
         pts_3d, pts_2d = detector.gather_information()
         if pts_3d is None or pts_2d is None or len(pts_3d) == 0 or len(pts_2d) == 0:
             print("No enough information for calibration.")

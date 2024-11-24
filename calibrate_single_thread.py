@@ -44,9 +44,10 @@ def concate_quad_images(imgs):
     cv.line(img, (img.shape[1]//2, 0), (img.shape[1]//2, img.shape[0]), (255, 255, 0), 2)
     return img
 
-def parse_bag_and_calibrate_quad_in_single_thread(rosbag_path, show=False, step=3):
+def parse_bag_and_calibrate_quad_in_single_thread(rosbag_path, show=False, step=3, intrinsic_init=None, D_init=None, undist_before_detection=False):
     import rosbag
-    detectors = [Detector(camera_id=i) for i in range(4)]
+    detectors = [Detector(camera_id=i, intrinsic_init=intrinsic_init, D_init=D_init,
+                          undist_before_detection=undist_before_detection) for i in range(4)]
     bag = rosbag.Bag(rosbag_path)
     total_image_num = CountBagImageNumber(rosbag_path)
     pbar = tqdm(total=total_image_num)

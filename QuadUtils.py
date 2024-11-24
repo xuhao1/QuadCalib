@@ -1,7 +1,7 @@
-import cv2  as cv
 import rosbag
 import os
 import yaml
+import numpy as np
 
 def split_quad_image(img, num_subimages = 4):
     #Split image vertically
@@ -80,4 +80,8 @@ def generate_d2vins_cinfiguration(ouput_bag_path):
     yaml.safe_dump(d2vins_config, d2vins_config_yaml,default_flow_style=False)
     print("d2vins_config_yaml write into {}".format(ouput_bag_path + "/fisheye_cams.yaml"))
     d2vins_config_yaml.close()
-                   
+  
+def K_xi_from_Intrinsic(intrinsic):
+    K = np.array([[intrinsic[1], 0, intrinsic[3]], [0, intrinsic[2], intrinsic[4]], [0, 0, 1]], dtype=np.float64)
+    xi = np.array([intrinsic[0]], dtype=np.float64)
+    return K, xi

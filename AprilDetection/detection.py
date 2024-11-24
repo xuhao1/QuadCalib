@@ -35,9 +35,14 @@ import numpy as np
 import yaml
 import numpy as np
 from AprilDetection.aprilgrid import generate_aprilgrid_3d_points, load_aprilgrid_config
+from QuadUtils import K_xi_from_Intrinsic
 
 class Detector:               
-    def __init__(self, camera_id = 0, tag_config="tag36h11", minimum_tag_num=4, yaml_file=None) -> None:
+    def __init__(self, camera_id = 0, tag_config="tag36h11", minimum_tag_num=4, 
+                    yaml_file=None,
+                    intrinsic_init=None,
+                    D_init=None,
+                    undist_before_detection=False) -> None:
         self.camera_id = camera_id
         self.tag_config = tag_config
         self.detector_opencv = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_APRILTAG_36h11)
@@ -54,6 +59,17 @@ class Detector:
                                                                 aprilgrid_config['tagRows'],
                                                                 aprilgrid_config['tagSize'],
                                                                 aprilgrid_config['tagSpacing'])
+        self.undist_before_detection = undist_before_detection
+        self.intrinsic_init = intrinsic_init
+        self.D_init = D_init
+        
+        K, xi = K_xi_from_Intrinsic(self.intrinsic_init)
+        new_size = (2000, 1000)
+        Knew = np.array([[new_size[0]/5, 0.0, 0.0],
+                        [0.0, new_size[0]/5, 0.0],
+                        [0.0, 0.0, 1.0]], dtype=np.float64)
+        self.map1, self.map2 = cv2.omnidir.initUndistortRectifyMap(K, self.D_init, xi, np.eye(3),
+                                                                   Knew, new_size, cv2.CV_16SC2, cv2.omnidir.RECTIFY_CYLINDRICAL)
     
     def detect_subpix_corner(self, image_gray, marker_corners):
         markers_corners_subpixes = []
@@ -67,7 +83,10 @@ class Detector:
         # Defaultly detect use apriltag
         if len(image.shape) == 3:
             image_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        cv2.imwrite(f"data/image_{image_idx}_{self.camera_id}.png", image_gray)
         #And then use opencv
+        if self.undist_before_detection:
+            image_gray = cv2.remap(image_gray, self.map1, self.map2, interpolation=cv2.INTER_LINEAR)
         marker_corners, ids, rejectedImgPoints = cv2.aruco.detectMarkers(image_gray, self.detector_opencv,
                                                                 parameters=self.arucoParams)
         if enable_subpix:
@@ -76,8 +95,7 @@ class Detector:
         self.results[image_idx] = (image_t, marker_corners, ids)
         if show:
             # Draw corners and ids on the image
-            if len(image.shape) == 2 and image.shape[2] == 1:
-                image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+            image = cv2.cvtColor(image_gray, cv2.COLOR_GRAY2BGR)
             if self.image_accumulate_corners is None:
                 self.image_accumulate_corners = np.zeros(image.shape)
             if len(marker_corners) >= self.minimum_tag_num:
