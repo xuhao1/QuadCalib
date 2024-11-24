@@ -54,31 +54,41 @@ class Detector:
                                                                 aprilgrid_config['tagRows'],
                                                                 aprilgrid_config['tagSize'],
                                                                 aprilgrid_config['tagSpacing'])
-        
-    def detect(self, image, image_t, image_idx, show=False):
+    
+    def detect_subpix_corner(self, image_gray, marker_corners):
+        markers_corners_subpixes = []
+        if len(marker_corners) >= self.minimum_tag_num:
+            for corners in marker_corners:
+                criteria = (cv2.TermCriteria_EPS + cv2.TermCriteria_COUNT, 40, 0.001 )
+                corners_subpixes = cv2.cornerSubPix(image_gray, corners, (11,11), (-1,-1), criteria)
+                markers_corners_subpixes.append(corners_subpixes)
+        return markers_corners_subpixes
+    def detect(self, image, image_t, image_idx, show=False, enable_subpix=False):
         # Defaultly detect use apriltag
         if len(image.shape) == 3:
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            image_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         #And then use opencv
-        corners, ids, rejectedImgPoints = cv2.aruco.detectMarkers(image, self.detector_opencv,
+        marker_corners, ids, rejectedImgPoints = cv2.aruco.detectMarkers(image_gray, self.detector_opencv,
                                                                 parameters=self.arucoParams)
-        # corners2 = cv.cornerSubPix(gray,corners, (11,11), (-1,-1), criteria)
-        if len(corners) >= self.minimum_tag_num:
-            self.results[image_idx] = (image_t, corners, ids)
+        if enable_subpix:
+            marker_corners = self.detect_subpix_corner(image_gray, marker_corners)
+
+        self.results[image_idx] = (image_t, marker_corners, ids)
         if show:
             # Draw corners and ids on the image
-            image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+            if len(image.shape) == 2 and image.shape[2] == 1:
+                image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
             if self.image_accumulate_corners is None:
                 self.image_accumulate_corners = np.zeros(image.shape)
-            
-            cv2.aruco.drawDetectedMarkers(image, corners, ids, (0, 255, 0))
+            if len(marker_corners) >= self.minimum_tag_num:
+                cv2.aruco.drawDetectedMarkers(image, marker_corners, ids, (0, 255, 0))
             
             # Draw corners in image_accumulate_corners
-            if len(corners) >= self.minimum_tag_num:
-                for corner in corners:
+            if len(marker_corners) >= self.minimum_tag_num:
+                for corner in marker_corners:
                     for c in corner[0]:
                         cv2.circle(self.image_accumulate_corners, (int(c[0]), int(c[1])), 3, (0, 255, 0), -1)
-            
+                
         return image, self.image_accumulate_corners
 
     def gather_information(self):
