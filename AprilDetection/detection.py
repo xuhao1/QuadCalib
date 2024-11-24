@@ -83,7 +83,7 @@ class Detector:
         # Defaultly detect use apriltag
         if len(image.shape) == 3:
             image_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        cv2.imwrite(f"data/image_{image_idx}_{self.camera_id}.png", image_gray)
+        # cv2.imwrite(f"data/image_{image_idx}_{self.camera_id}.png", image_gray)
         #And then use opencv
         if self.undist_before_detection:
             image_gray = cv2.remap(image_gray, self.map1, self.map2, interpolation=cv2.INTER_LINEAR)
