@@ -3,11 +3,16 @@ import cv2 as cv
 import numpy as np
 from transformations import *
 class FisheyeUndist:
-    def __init__(self, camera_matrix, dist_coeffs, xi, fov=190, width=1000, height=500, extrinsic=None):
+    def __init__(self, camera_matrix, dist_coeffs, xi, fov=190, width=1000, height=500, extrinsic=None, mode="FISHEYE_2"):
         self.camera_matrix = camera_matrix
         self.dist_coeffs = dist_coeffs
         self.xi = xi
-        self.generatePinhole2(fov, width, height)
+        if mode == "FISHEYE_2":
+            self.generatePinhole2(fov, width, height)
+        elif mode == "FISHEYE_5":
+            self.generatePinhole5(fov, width, height)
+        else:
+            raise ValueError("Unsupported mode")
         if extrinsic is None:
             self.extrinsic = np.eye(4)
         else:
@@ -47,6 +52,26 @@ class FisheyeUndist:
         map2 = self.generateUndistMapPinhole(R1, focal_gen, width, height)
         self.maps = [map1, map2]
     
+    def generatePinhole5(self, fov, width, height):
+        sideVerticalFOV = (fov - 180.0) * np.pi / 180.0
+        centerFOV = fov * np.pi / 180 - sideVerticalFOV * 2
+        f_center = width / 2.0 / np.tan(centerFOV / 2)
+        f_side = width / 2
+        sideImgHeight = int(np.floor(2 * f_side * np.tan(sideVerticalFOV/2)))
+        print("fcenter", f_center, "fside", f_side, "width", width, "sideImgHeight", sideImgHeight)
+        self.T = [np.eye(4) for i in range(5)]
+        self.maps = []
+        self.maps.append(self.generateUndistMapPinhole(self.T[0][0:3, 0:3], f_center, width, width))
+        self.T[1] = self.T[0] @ euler_matrix(-np.pi/2, 0, 0, 'sxyz')
+        self.maps.append(self.generateUndistMapPinhole(self.T[1][0:3, 0:3], f_side, width, sideImgHeight))
+        self.T[2] = self.T[1] @ euler_matrix(0, np.pi/2, 0, 'sxyz')
+        self.maps.append(self.generateUndistMapPinhole(self.T[2][0:3, 0:3], f_side, width, sideImgHeight))
+        self.T[3] = self.T[2] @ euler_matrix(0, np.pi/2, 0, 'sxyz')
+        self.maps.append(self.generateUndistMapPinhole(self.T[3][0:3, 0:3], f_side, width, sideImgHeight))
+        self.T[4] = self.T[3] @ euler_matrix(0, np.pi/2, 0, 'sxyz')
+        self.maps.append(self.generateUndistMapPinhole(self.T[4][0:3, 0:3], f_side, width, sideImgHeight))
+
+
     def undistAll(self, img):
         imgs = []
         for map in self.maps:

@@ -79,6 +79,7 @@ class Detector:
                 corners_subpixes = cv2.cornerSubPix(image_gray, corners, (11,11), (-1,-1), criteria)
                 markers_corners_subpixes.append(corners_subpixes)
         return markers_corners_subpixes
+    
     def detect(self, image, image_t, image_idx, show=False, enable_subpix=False):
         # Defaultly detect use apriltag
         if len(image.shape) == 3:
