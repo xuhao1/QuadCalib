@@ -52,10 +52,15 @@ if __name__ == "__main__":
                         "extract the image data. Default is 3.")
     parser.add_argument("--show", action="store_true",
                         help="Show the image.")
+    parser.add_argument("--quad", action="store_true",
+                        help="Use quad image.")
+    parser.add_argument("--is-omni", action="store_true",
+                        help="Is fisheye.")
     # Parse the arguments
     args = parser.parse_args()
     
     cv2.setNumThreads(10)
     
     parse_bag_and_calibrate_quad_in_single_thread(args.input, show=args.show, step=args.step,
-                                                  intrinsic_init=intrinsic_init, D_init=D_init, undist_before_detection=False)
+                                                  intrinsic_init=intrinsic_init, D_init=D_init,
+                                                  undist_before_detection=False, is_calibrate_quad=args.quad, is_omnidir=args.is_omni)

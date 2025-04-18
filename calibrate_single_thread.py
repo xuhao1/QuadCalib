@@ -44,7 +44,7 @@ def concate_quad_images(imgs):
     cv.line(img, (img.shape[1]//2, 0), (img.shape[1]//2, img.shape[0]), (255, 255, 0), 2)
     return img
 
-def parse_bag_and_calibrate_quad_in_single_thread(rosbag_path, show=False, step=3, intrinsic_init=None, D_init=None, undist_before_detection=False):
+def parse_bag_and_calibrate_quad_in_single_thread(rosbag_path, show=False, step=3, intrinsic_init=None, D_init=None, undist_before_detection=False, is_calibrate_quad=False, is_omnidir=False):
     import rosbag
     detectors = [Detector(camera_id=i, intrinsic_init=intrinsic_init, D_init=D_init,
                           undist_before_detection=undist_before_detection) for i in range(4)]
@@ -59,8 +59,9 @@ def parse_bag_and_calibrate_quad_in_single_thread(rosbag_path, show=False, step=
     for topic, msg, t in bag.read_messages():
         img = None
         if msg._type == "sensor_msgs/Image":
-            print("Raw image not supported yet")
-            continue
+            # Decode the image data from the ROS message
+            img = np.frombuffer(msg.data, np.uint8)
+            img = img.reshape(msg.height, msg.width, -1)
         elif msg._type == "sensor_msgs/CompressedImage":
             img = msg.data
             if msg.format == "jpeg" or msg.format == "jpg":
@@ -74,27 +75,39 @@ def parse_bag_and_calibrate_quad_in_single_thread(rosbag_path, show=False, step=
         if frame_id % step != 0:
             frame_id += 1
             continue
-        imgs = split_quad_image(img)
-        cul_img = [None] * 4
-        for i in range(4):
-            imgs[i], cul_img[i] = detectors[i].detect(imgs[i], t, frame_id, show=show)
-            if shape is None:
-                shape = imgs[i].shape[:2]
+        if is_calibrate_quad:
+            imgs = split_quad_image(img)
+            cul_img = [None] * 4
+            for i in range(4):
+                imgs[i], cul_img[i] = detectors[i].detect(imgs[i], t, frame_id, show=show)
+                if shape is None:
+                    shape = imgs[i].shape[:2]
+        else:
+            img, cul_img = detectors[0].detect(img, t, frame_id, show=show)
+            shape = img.shape[:2]
         # Use tqdm to show the progress
         pbar.update(step)
         if show:
-            show_image = concate_quad_images(imgs)
+            if is_calibrate_quad:
+                show_image = concate_quad_images(imgs)
+            else:
+                show_image = img
             cv.putText(show_image, f"Frame {frame_id}", (10, 30), cv.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
             cv.imshow("Image", show_image)
-            cv.imshow("CulImage", concate_quad_images(cul_img))
+            cv.imshow("Cul", cul_img)
+            if is_calibrate_quad:
+                cv.imshow("CulImage", concate_quad_images(cul_img))
             # Draw the frame_id
             key = cv.waitKey(1)
             if key == ord('q') or key == 27:
                 break
         frame_id += 1
     pbar.close()
-    for i in range(4):
-        print(f"Start to calibrate camera {i}")
-        retval, K, D, rvecs, tvecs = calibrator.calibrate_mono(detectors[i], shape)
+    if is_calibrate_quad:
+        for i in range(4):
+            print(f"Start to calibrate camera {i}")
+            retval, K, D, rvecs, tvecs = calibrator.calibrate_mono(detectors[i], shape, is_omnidir=is_omnidir)
+    else:
+        retval, K, D, rvecs, tvecs = calibrator.calibrate_mono(detectors[0], shape, is_omnidir=is_omnidir)
     bag.close()
     cv.destroyAllWindows()

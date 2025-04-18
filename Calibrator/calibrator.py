@@ -37,23 +37,30 @@ class IntrinsicCalibrator:
         self.calibration_method = calibration_method
 
     def calibrate_mono(self, detector, image_size, intrinsic_init = np.array([1.24, 813, 812, 640, 360]),
-                                                    D_init = np.array([-0.2, 0.4, 0., 0.])):
+                                                    D_init = np.array([-0.2, 0.4, 0., 0.]), is_omnidir=False):
         pts_3d, pts_2d = detector.gather_information()
         if pts_3d is None or pts_2d is None or len(pts_3d) == 0 or len(pts_2d) == 0:
             print("No enough information for calibration.")
             return None, None, None, None, None
         if self.calibration_method == "OPENCV":
-            flags = cv2.omnidir.CALIB_FIX_SKEW
-            if intrinsic_init is not None:
-                flags |= cv2.omnidir.CALIB_USE_GUESS
-            D_init = D_init.reshape((1, 4))
-            K = np.array([[intrinsic_init[1], 0, intrinsic_init[3]], [0, intrinsic_init[2], intrinsic_init[4]], [0, 0, 1]], dtype=np.float64)
-            xi = np.array([intrinsic_init[0]], dtype=np.float64)
-            rvecs = None
-            tvecs = None
-            retval, K, xi, D, rvecs, tvecs, idx = cv2.omnidir.calibrate(pts_3d, pts_2d, size=image_size, K=K,
-                                                            xi=xi, D=D_init, flags=flags,
-                                                            criteria=(cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 1e-6))
+            if is_omnidir:
+                flags = cv2.omnidir.CALIB_FIX_SKEW
+                if intrinsic_init is not None:
+                    flags |= cv2.omnidir.CALIB_USE_GUESS
+                D_init = D_init.reshape((1, 4))
+                K = np.array([[intrinsic_init[1], 0, intrinsic_init[3]], [0, intrinsic_init[2], intrinsic_init[4]], [0, 0, 1]], dtype=np.float64)
+                xi = np.array([intrinsic_init[0]], dtype=np.float64)
+                rvecs = None
+                tvecs = None
+                retval, K, xi, D, rvecs, tvecs, idx = cv2.omnidir.calibrate(pts_3d, pts_2d, size=image_size, K=K,
+                                                                xi=xi, D=D_init, flags=flags,
+                                                                criteria=(cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 1e-6))
+            else: # Use opencv pinhole to calibrate
+                D_init = D_init.reshape((1, 4))
+                rvecs = None
+                tvecs = None
+                retval, K, D, rvecs, tvecs, idx = cv2.calibrateCamera(pts_3d, pts_2d, image_size, cameraMatrix=None, distCoeffs=None,
+                                                                    criteria=(cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 1e-6))
             print("Intrinsic calibration done: RMSE:", retval)
             print(f"Intrinsic: [{xi[0]}, {K[0, 0]}, {K[1, 1]}, {K[0, 2]}, {K[1, 2]}]")
             print("K:\n", K)

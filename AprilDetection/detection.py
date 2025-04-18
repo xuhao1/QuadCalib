@@ -82,9 +82,10 @@ class Detector:
     
     def detect(self, image, image_t, image_idx, show=False, enable_subpix=False):
         # Defaultly detect use apriltag
-        if len(image.shape) == 3:
+        if len(image.shape) == 3 and image.shape[2] == 3:
             image_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        # cv2.imwrite(f"data/image_{image_idx}_{self.camera_id}.png", image_gray)
+        else:
+            image_gray = image
         #And then use opencv
         if self.undist_before_detection:
             image_gray = cv2.remap(image_gray, self.map1, self.map2, interpolation=cv2.INTER_LINEAR)
@@ -101,6 +102,7 @@ class Detector:
                 self.image_accumulate_corners = np.zeros(image.shape)
             if len(marker_corners) >= self.minimum_tag_num:
                 cv2.aruco.drawDetectedMarkers(image, marker_corners, ids, (0, 255, 0))
+            # cv2.q(f"data/image_{self.camera_id}_{image_idx}.png", image_gray)
             
             # Draw corners in image_accumulate_corners
             if len(marker_corners) >= self.minimum_tag_num:
