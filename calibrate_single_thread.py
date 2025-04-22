@@ -44,12 +44,15 @@ def concate_quad_images(imgs):
     cv.line(img, (img.shape[1]//2, 0), (img.shape[1]//2, img.shape[0]), (255, 255, 0), 2)
     return img
 
-def parse_bag_and_calibrate_quad_in_single_thread(rosbag_path, show=False, step=3, intrinsic_init=None, D_init=None, undist_before_detection=False, is_calibrate_quad=False, is_omnidir=False):
+def parse_bag_and_calibrate_quad_in_single_thread(rosbag_path,
+        show=False, step=3, intrinsic_init=None, D_init=None,
+        undist_before_detection=False, is_calibrate_quad=False, is_omnidir=False,
+        topic_name=""):
     import rosbag
     detectors = [Detector(camera_id=i, intrinsic_init=intrinsic_init, D_init=D_init,
                           undist_before_detection=undist_before_detection) for i in range(4)]
     bag = rosbag.Bag(rosbag_path)
-    total_image_num = CountBagImageNumber(rosbag_path)
+    total_image_num = CountBagImageNumber(rosbag_path, topic_name="")
     pbar = tqdm(total=total_image_num)
 
     frame_id = 0
@@ -58,6 +61,8 @@ def parse_bag_and_calibrate_quad_in_single_thread(rosbag_path, show=False, step=
     shape = None
     for topic, msg, t in bag.read_messages():
         img = None
+        if topic_name != "" and topic_name != topic:
+            continue
         if msg._type == "sensor_msgs/Image":
             # Decode the image data from the ROS message
             img = np.frombuffer(msg.data, np.uint8)

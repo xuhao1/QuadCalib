@@ -56,6 +56,8 @@ if __name__ == "__main__":
                         help="Use quad image.")
     parser.add_argument("--is-omni", action="store_true",
                         help="Is fisheye.")
+    parser.add_argument("-t", "--topic", required=False, type=str, default="",
+                        help="The file path of the rosbag file.")
     # Parse the arguments
     args = parser.parse_args()
     
@@ -63,4 +65,5 @@ if __name__ == "__main__":
     
     parse_bag_and_calibrate_quad_in_single_thread(args.input, show=args.show, step=args.step,
                                                   intrinsic_init=intrinsic_init, D_init=D_init,
-                                                  undist_before_detection=False, is_calibrate_quad=args.quad, is_omnidir=args.is_omni)
+                                                  undist_before_detection=False, is_calibrate_quad=args.quad,
+                                                  is_omnidir=args.is_omni, topic_name=args.topic)
